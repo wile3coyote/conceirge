@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Environment
+.env
+
+# Database
+concierge.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Editor / tools
+.claude/
+.envrc

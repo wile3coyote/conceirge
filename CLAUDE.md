@@ -72,3 +72,33 @@ Concierge is a local-network web app that replaces the manual Radarr UI for movi
 - `Download.status` is a `Literal` — only the five values `pending | searching | grabbed | complete | failed` are valid.
 - The backend runs from the **project root** (`uvicorn backend.main:app`), not from inside `backend/`. Imports use `from backend.X import Y` throughout.
 - SQLite DB path is resolved relative to `database.py`'s location, so it always lands at the project root regardless of CWD.
+
+## Commit Message Standard
+
+Format: `<type>(<scope>): <short summary>`
+
+**Types**
+- `feat` — new feature or capability
+- `fix` — bug fix
+- `chore` — tooling, deps, config (no production code)
+- `docs` — documentation only
+- `refactor` — code restructure, no behavior change
+- `test` — adding or updating tests
+- `style` — formatting, linting (no logic change)
+
+**Scopes** (optional): `backend`, `frontend`, `db`, `api`, `scorer`, `webhook`, `config`, `deps`
+
+**Rules**
+- Summary is lowercase, imperative mood, no trailing period, max ~72 chars
+- No HEREDOC, no EOF markers, no `Co-Authored-By` trailer
+- Use plain `git commit -m "..."` inline string
+- Split commits by concern — backend, frontend, docs, config as separate commits
+
+**Examples**
+```
+feat(scorer): add 2160p preference and 720p rejection
+fix(backend): handle missing radarr api key gracefully
+chore(deps): pin aiosqlite to 0.19.0
+test(scorer): add cases for blocklist keyword rejection
+docs: update PLAN.md with phase 2 milestones
+```

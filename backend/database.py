@@ -1,0 +1,33 @@
+from pathlib import Path
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlmodel import SQLModel
+
+# Place the DB file at the project root (one level above this file's directory)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_DB_PATH = _PROJECT_ROOT / "concierge.db"
+_DATABASE_URL = f"sqlite+aiosqlite:///{_DB_PATH}"
+
+engine = create_async_engine(
+    _DATABASE_URL,
+    echo=False,
+)
+
+async_session = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
+
+async def create_db_and_tables() -> None:
+    """Create all SQLModel tables. Called once on application startup."""
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency that yields a database session."""
+    async with async_session() as session:
+        yield session

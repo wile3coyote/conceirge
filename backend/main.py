@@ -5,10 +5,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from backend.config import get_settings
 from backend.database import create_db_and_tables
 from backend.exceptions import ConciergeError
-from backend.routers import downloads, movies, webhooks
+from backend.routers import library, movies, webhooks
 import backend.models  # noqa: F401 — registers SQLModel table metadata
 
 
@@ -35,7 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(movies.router)
-app.include_router(downloads.router)
+app.include_router(library.router)
 app.include_router(webhooks.router)
 
 

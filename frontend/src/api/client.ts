@@ -43,3 +43,10 @@ export async function post<T>(path: string, body?: unknown): Promise<T> {
   }
   return res.json() as Promise<T>;
 }
+
+export async function del(path: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}${path}`, { method: "DELETE" });
+  if (!res.ok) {
+    return throwApiError(res);
+  }
+}

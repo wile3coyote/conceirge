@@ -1,29 +1,32 @@
-export type DownloadStatus =
-  | "pending"
+export type LibraryStatus =
   | "searching"
-  | "grabbed"
-  | "complete"
+  | "grabbing"
+  | "downloading"
+  | "downloaded"
+  | "in_library"
   | "failed";
 
-export interface Download {
+export interface LibraryItem {
   id: number;
-  radarr_movie_id: number;
-  movie_title: string;
+  tmdb_id: number;
+  radarr_movie_id: number | null;
+  title: string;
   year: number;
-  status: DownloadStatus;
+  overview: string | null;
+  poster_url: string | null;
+  status: LibraryStatus;
+  fail_reason: string | null;
   chosen_release_title: string | null;
   chosen_release_size_gb: number | null;
   chosen_release_quality: string | null;
   created_at: string;
-  completed_at: string | null;
+  updated_at: string;
 }
 
-export interface ScoredRelease {
+export interface MovieSearchResult {
+  tmdb_id: number;
   title: string;
-  size_gb: number;
-  quality: string;
-  score: number;
-  rejected: boolean;
-  reject_reason: string | null;
-  radarr_guid: string;
+  year: number;
+  overview: string | null;
+  poster_url: string | null;
 }

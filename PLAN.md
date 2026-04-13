@@ -1,13 +1,14 @@
 # Project Plan — Concierge
 
 ## Overview
-Concierge is a local-network web app that automates movie downloads by orchestrating Radarr (search + release selection), SABnzbd (via Radarr), and Jellyfin (library refresh) — replacing the manual Radarr UI workflow with a single search-and-confirm interface.
+Concierge is a local-network web app that acts as a simplified Radarr interface for a non-technical user. Search for a movie, click "Add to Library," and the system auto-picks the best release, triggers the download via Radarr/SABnzbd, and refreshes Jellyfin when complete — all from a single page.
 
 ## Goals
-- Search for a movie and automatically pick the best available release based on quality, size, and format rules
-- Trigger the download via Radarr/SABnzbd with one click, without opening Radarr
+- Search for a movie and add it to an internal library with one click
+- Automatically pick the best available release based on quality, size, and format rules
+- Track download status in real time: searching → downloading → in Jellyfin
 - Automatically refresh Jellyfin when the download completes
-- Track active downloads and history in a simple UI
+- Allow retry (fresh search) or delete on failed items
 
 ## Tech Stack
 
@@ -20,7 +21,7 @@ Concierge is a local-network web app that automates movie downloads by orchestra
 | Config | pydantic-settings + .env | Type-safe config for API keys and URLs |
 | Frontend framework | React 18 + Vite + TypeScript | Fast dev cycle, strict typing |
 | Styling | Tailwind CSS | Utility-first, no separate CSS files |
-| Data fetching | TanStack Query v5 | Polling for active downloads, cache invalidation |
+| Data fetching | TanStack Query v5 | Polling for library status, cache invalidation |
 | Testing (backend) | pytest + httpx + respx | FastAPI-native, mock Radarr/Jellyfin HTTP calls |
 | Testing (frontend) | Vitest + React Testing Library | Component and flow testing |
 | Deployment | Docker + docker-compose | Reproducible local server deployment |
@@ -28,10 +29,11 @@ Concierge is a local-network web app that automates movie downloads by orchestra
 ## Architecture
 
 - **Orchestrator pattern:** the backend is the sole integration point — the React UI never calls Radarr or Jellyfin directly; all calls go through our FastAPI backend which holds the API keys and scoring logic
-- **Search flow:** UI sends query → backend calls Radarr to find/add the movie → triggers a release search → fetches releases → scores them → returns ranked list to UI
-- **Grab flow:** user confirms (or overrides) → backend tells Radarr to grab the chosen release → Radarr hands it to SABnzbd automatically
-- **Completion flow:** Radarr fires an `On Download` webhook to our server → backend calls Jellyfin to refresh that library item → marks the Download record as `complete`
-- **State:** SQLite holds Download records with status lifecycle: `pending → searching → grabbed → complete / failed`
+- **Search flow:** UI sends query → backend calls Radarr lookup → returns movie info (poster, title, year, overview) to UI — no releases exposed to the user
+- **Add-to-library flow:** User clicks "Add to Library" → backend creates a `LibraryItem` (status: `searching`), returns 202 immediately → a background task handles: Radarr release search → score releases → grab best release → status updates at each step
+- **Webhook flow:** Radarr fires `On Grab` / `On Download` webhooks → backend updates library item status → on download complete, triggers Jellyfin library refresh → marks item as `in_library`
+- **Retry flow:** User clicks "Retry" on a failed item → backend resets status to `searching`, kicks off background task again. Radarr's built-in blocklist avoids re-grabbing the same failed release.
+- **State:** SQLite holds `LibraryItem` records with status lifecycle: `searching → grabbing → downloading → downloaded → in_library | failed`
 
 ## Folder Structure
 
@@ -43,30 +45,31 @@ concierge/
 │   ├── database.py              # SQLite engine + async session dependency
 │   ├── exceptions.py            # Domain exception hierarchy (RadarrError, JellyfinError, etc.)
 │   ├── models/
-│   │   ├── download.py          # SQLModel table: Download (status, release info, timestamps)
-│   │   └── release.py           # Pydantic-only: ScoredRelease (not persisted)
+│   │   ├── library_item.py      # SQLModel table: LibraryItem (status, release info, timestamps)
+│   │   └── release.py           # Pydantic-only: ScoredRelease, MovieSearchResult, AddToLibraryRequest
 │   ├── routers/
-│   │   ├── movies.py            # POST /movies/search, POST /movies/grab
-│   │   ├── downloads.py         # GET /downloads
-│   │   └── webhooks.py          # POST /webhooks/radarr (On Download events)
+│   │   ├── movies.py            # POST /movies/search (movie lookup only, no releases)
+│   │   ├── library.py           # POST /library, GET /library, POST /library/{id}/retry, DELETE /library/{id}
+│   │   └── webhooks.py          # POST /webhooks/radarr (On Grab, On Download events)
 │   ├── services/
 │   │   ├── radarr.py            # All Radarr API calls (httpx client)
 │   │   ├── jellyfin.py          # Jellyfin library refresh call
-│   │   └── scorer.py            # Release scoring logic — pure, no I/O
+│   │   ├── scorer.py            # Release scoring logic — pure, no I/O
+│   │   └── library.py           # Background task: search → score → grab pipeline
 │   └── tests/
 │       ├── conftest.py
 │       ├── test_scorer.py
 │       ├── test_movies.py
-│       ├── test_downloads.py
-│       └── test_webhooks.py
+│       ├── test_library.py
+│       ├── test_webhooks.py
+│       └── test_jellyfin.py
 ├── frontend/
 │   ├── src/
-│   │   ├── components/          # SearchBar, ReleaseCard, DownloadRow, StatusBadge
+│   │   ├── components/          # SearchBar, MovieCard, LibraryCard, StatusBadge
 │   │   ├── pages/
-│   │   │   ├── Search.tsx       # Search + scored release + override + confirm flow
-│   │   │   └── Downloads.tsx    # Active downloads (polling) + history
+│   │   │   └── Home.tsx         # Single page: search bar + library grid
 │   │   ├── api/                 # TanStack Query hooks + shared types
-│   │   └── main.tsx             # App entry, React Router, QueryClient setup
+│   │   └── main.tsx             # App entry, QueryClient setup
 │   ├── index.html
 │   └── vite.config.ts
 ├── .env.example                 # Template for API keys and service URLs
@@ -76,16 +79,19 @@ concierge/
 
 ## Key Data Models
 
-**Download** (persisted in SQLite)
-- `id`, `radarr_movie_id`, `movie_title`, `year`
-- `status`: `pending | searching | grabbed | complete | failed`
+**LibraryItem** (persisted in SQLite)
+- `id`, `tmdb_id` (indexed, dedup key), `radarr_movie_id` (nullable, set after Radarr lookup)
+- `title`, `year`, `overview`, `poster_url`
+- `status`: `searching | grabbing | downloading | downloaded | in_library | failed`
+- `fail_reason` (nullable, set on failure)
 - `chosen_release_title`, `chosen_release_size_gb`, `chosen_release_quality`
-- `created_at`, `completed_at`
+- `created_at`, `updated_at`
 
-**ScoredRelease** (in-memory, returned by `/movies/search`)
-- `title`, `size_gb`, `quality` (e.g. `2160p`, `1080p`)
-- `score` (integer ranking), `rejected` (bool), `reject_reason`
-- `radarr_guid` (passed back to `/movies/grab`)
+**MovieSearchResult** (in-memory, returned by `/movies/search`)
+- `tmdb_id`, `title`, `year`, `overview`, `poster_url`
+
+**ScoredRelease** (in-memory, used internally by scorer — never exposed to UI)
+- `title`, `size_gb`, `quality`, `score`, `rejected`, `reject_reason`, `radarr_guid`, `indexer_id`
 
 **Config** (pydantic-settings, from `.env`)
 - `radarr_url`, `radarr_api_key`
@@ -95,13 +101,17 @@ concierge/
 
 ## Phases
 
-| Phase | Name | What's included | Done when… |
+| Phase | Name | What's included | Done when... |
 |---|---|---|---|
-| 1 | Foundation | Project scaffold, folder structure, pydantic-settings config, SQLite + SQLModel setup, `.env.example`, health endpoint | `GET /health` returns 200, frontend loads, DB initializes on startup |
-| 2 | Radarr Integration | Radarr service layer, scorer logic, `POST /movies/search` returning scored + ranked releases | Can search a movie and get back a ranked release list with rejections explained |
-| 3 | Grab & Download Tracking | `POST /movies/grab`, Download record lifecycle, Radarr webhook receiver, Jellyfin refresh on completion | Full grab-to-complete flow works end-to-end via FastAPI `/docs` |
-| 4 | Frontend UI | Search page, Downloads page, polling, status badges, error states | Full flow usable from browser without touching Radarr UI |
-| 5 | Deployment | Dockerfiles, docker-compose, nginx proxy, SQLite volume, LAN IP wiring | `docker compose up` on the server brings the app up and survives a reboot |
+| 1 | Backend Data Model | Replace `Download` with `LibraryItem`, update status enum, update request/response models | New table schema creates, models import cleanly |
+| 2 | Simplified Search | `POST /movies/search` returns movie info only (no releases), remove grab endpoint | Search returns list of movie cards with poster/title/year |
+| 3 | Library Router + Background Task | `POST/GET/DELETE /library`, retry endpoint, async background task (search → score → grab) | Can add movie to library, status progresses through pipeline |
+| 4 | Webhooks | Radarr webhook handler for On Grab and On Download events | Webhook payloads drive status transitions |
+| 5 | Jellyfin Service | `refresh_library()` implementation, called from webhook on download complete | Movie reaches `in_library` status after Jellyfin refresh |
+| 6 | Frontend Types + API | Updated TypeScript types, delete helper in API client | TypeScript compiles with new types |
+| 7 | Frontend Components | MovieCard, LibraryCard, updated StatusBadge | Components render correctly |
+| 8 | Frontend Single Page | Home.tsx with search bar + library grid, remove router/nav | Full flow usable from browser |
+| 9 | Tests | Backend tests for all endpoints, background task, webhooks, Jellyfin | `pytest backend/tests/` passes |
 
 ## Scoring Rules
 
@@ -119,6 +129,7 @@ concierge/
 - Notifications (email, Slack, etc.) on download completion
 - Multiple simultaneous grabs for the same movie
 - Subtitle downloading
+- Release selection UI (auto-picker only)
 
 ---
-*Last updated: 2026-04-11*
+*Last updated: 2026-04-12*

@@ -1,3 +1,3 @@
-from backend.models.download import Download
+from backend.models.library_item import LibraryItem
 
-__all__ = ["Download"]
+__all__ = ["LibraryItem"]

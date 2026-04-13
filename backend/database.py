@@ -1,8 +1,9 @@
 from pathlib import Path
 from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 # Place the DB file at the project root (one level above this file's directory)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent

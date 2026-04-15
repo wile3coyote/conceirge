@@ -1,0 +1,35 @@
+package com.example.conceirge.data
+
+import com.example.conceirge.data.models.AddToLibraryRequest
+import com.example.conceirge.data.models.LibraryItem
+import com.example.conceirge.data.models.MovieSearchRequest
+import com.example.conceirge.data.models.MovieSearchResult
+import com.example.conceirge.data.network.ConciergeApiService
+
+class ConciergeRepository(private val api: ConciergeApiService) {
+
+    suspend fun searchMovies(query: String): Result<List<MovieSearchResult>> =
+        runCatching { api.searchMovies(MovieSearchRequest(query)) }
+
+    suspend fun getLibrary(): Result<List<LibraryItem>> =
+        runCatching { api.getLibrary() }
+
+    suspend fun addToLibrary(movie: MovieSearchResult): Result<LibraryItem> =
+        runCatching {
+            api.addToLibrary(
+                AddToLibraryRequest(
+                    tmdb_id = movie.tmdb_id,
+                    title = movie.title,
+                    year = movie.year,
+                    overview = movie.overview,
+                    poster_url = movie.poster_url
+                )
+            )
+        }
+
+    suspend fun retryItem(id: Int): Result<LibraryItem> =
+        runCatching { api.retryLibraryItem(id) }
+
+    suspend fun deleteItem(id: Int): Result<Unit> =
+        runCatching { api.deleteLibraryItem(id); Unit }
+}

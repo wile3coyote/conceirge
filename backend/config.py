@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     jellyfin_url: str = "http://localhost:8096"
     jellyfin_api_key: SecretStr = SecretStr("")
     max_size_gb: float = 40.0
+    max_size_tolerance_pct: float = 20.0  # % over max_size_gb still accepted
     preferred_quality: str = "2160p"
     avoid_keywords: list[str] = ["BRRip", "CAM", "TS", "HDCAM"]
 

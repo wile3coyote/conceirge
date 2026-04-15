@@ -53,7 +53,8 @@ async def radarr_webhook(
 
     if event_type == "Grab" and item.status == "grabbing":
         item.status = "downloading"
-        logger.info("Item %d: grabbing → downloading", item.id)
+        item.download_id = payload.get("downloadId")  # SABnzbd nzo_id for progress tracking
+        logger.info("Item %d: grabbing → downloading (download_id=%s)", item.id, item.download_id)
     elif event_type == "Download" and item.status in ("grabbing", "downloading"):
         try:
             await jellyfin.refresh_library(settings)

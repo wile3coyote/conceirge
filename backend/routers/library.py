@@ -7,8 +7,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from backend.config import Settings, get_settings
 from backend.database import get_session
-from backend.models.library_item import LibraryItem
+from backend.models.library_item import LibraryItem, LibraryItemRead
 from backend.models.release import AddToLibraryRequest
+from backend.services import sabnzbd
 from backend.services.library import run_library_pipeline
 
 router = APIRouter(prefix="/library", tags=["library"])
@@ -44,15 +45,29 @@ async def add_to_library(
     return item
 
 
-@router.get("", response_model=list[LibraryItem])
+@router.get("", response_model=list[LibraryItemRead])
 async def get_library(
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> list[LibraryItem]:
-    """Return all library items, newest first."""
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> list[LibraryItemRead]:
+    """Return all library items, newest first. Includes live download progress from SABnzbd."""
     result = await session.exec(
         select(LibraryItem).order_by(LibraryItem.created_at.desc())  # type: ignore[arg-type]
     )
-    return list(result.all())
+    items = list(result.all())
+
+    # Fetch SABnzbd queue once if any item is currently downloading
+    progress_map: dict[str, float] = {}
+    if any(i.status == "downloading" and i.download_id for i in items):
+        progress_map = await sabnzbd.get_queue_progress_map(settings)
+
+    response: list[LibraryItemRead] = []
+    for item in items:
+        read = LibraryItemRead.model_validate(item)
+        if item.download_id:
+            read.download_progress = progress_map.get(item.download_id)
+        response.append(read)
+    return response
 
 
 @router.post("/{item_id}/retry", response_model=LibraryItem)

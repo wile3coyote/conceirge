@@ -1,20 +1,41 @@
+import json
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlmodel import select
 
-from backend.database import create_db_and_tables
+from backend.config import get_settings
+from backend.database import async_session, create_db_and_tables
 from backend.exceptions import ConciergeError
-from backend.routers import library, movies, webhooks
+from backend.models.app_settings import AppSettings
+from backend.routers import library, movies, status as status_router, webhooks
+from backend.routers import settings as settings_router
 import backend.models  # noqa: F401 — registers SQLModel table metadata
+
+
+async def _seed_app_settings() -> None:
+    """Create the settings row from .env defaults if it doesn't exist yet."""
+    env = get_settings()
+    async with async_session() as session:
+        existing = (await session.exec(select(AppSettings))).first()
+        if existing is None:
+            row = AppSettings(
+                max_size_gb=env.max_size_gb,
+                preferred_quality=env.preferred_quality,
+                avoid_keywords_json=json.dumps(env.avoid_keywords),
+            )
+            session.add(row)
+            await session.commit()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Initialize DB tables on startup; clean up on shutdown."""
+    """Initialize DB tables and seed settings on startup."""
     await create_db_and_tables()
+    await _seed_app_settings()
     yield
 
 
@@ -36,6 +57,8 @@ app.add_middleware(
 app.include_router(movies.router)
 app.include_router(library.router)
 app.include_router(webhooks.router)
+app.include_router(settings_router.router)
+app.include_router(status_router.router)
 
 
 @app.exception_handler(ConciergeError)

@@ -1,12 +1,15 @@
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 
 import httpx
+from sqlmodel import select
 
 from backend.config import Settings
 from backend.database import async_session
 from backend.exceptions import ConciergeError, RadarrError
+from backend.models.app_settings import AppSettings
 from backend.models.library_item import LibraryItem
 from backend.services import radarr, scorer
 
@@ -19,6 +22,15 @@ async def run_library_pipeline(item_id: int, settings: Settings) -> None:
         item = await session.get(LibraryItem, item_id)
         if item is None:
             return
+
+        # Merge DB scoring preferences over env defaults so UI changes take effect immediately
+        db_prefs = (await session.exec(select(AppSettings))).first()
+        if db_prefs is not None:
+            settings = settings.model_copy(update={
+                "max_size_gb": db_prefs.max_size_gb,
+                "preferred_quality": db_prefs.preferred_quality,
+                "avoid_keywords": json.loads(db_prefs.avoid_keywords_json),
+            })
 
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:

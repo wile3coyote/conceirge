@@ -1,14 +1,18 @@
 package com.example.conceirge.data.network
 
 import com.example.conceirge.data.models.AddToLibraryRequest
+import com.example.conceirge.data.models.AppSettings
+import com.example.conceirge.data.models.AppSettingsUpdate
 import com.example.conceirge.data.models.LibraryItem
 import com.example.conceirge.data.models.MovieSearchRequest
 import com.example.conceirge.data.models.MovieSearchResult
+import com.example.conceirge.data.models.SystemStatus
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 interface ConciergeApiService {
@@ -26,4 +30,13 @@ interface ConciergeApiService {
 
     @DELETE("library/{id}")
     suspend fun deleteLibraryItem(@Path("id") id: Int): Response<Unit>
+
+    @GET("settings")
+    suspend fun getSettings(): AppSettings
+
+    @PUT("settings")
+    suspend fun updateSettings(@Body update: AppSettingsUpdate): AppSettings
+
+    @GET("status")
+    suspend fun getStatus(): SystemStatus
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -73,6 +74,22 @@ fun LibraryCard(
                         text = releaseInfo,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Download progress bar
+                if (item.status == "downloading" && item.download_progress != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    val progress = (item.download_progress / 100.0).coerceIn(0.0, 1.0).toFloat()
+                    Text(
+                        text = "Downloading · ${"%.1f".format(item.download_progress)}%",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 

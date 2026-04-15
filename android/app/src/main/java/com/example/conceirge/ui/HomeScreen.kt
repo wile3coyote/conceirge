@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -31,7 +35,11 @@ import com.example.conceirge.ui.components.MovieCard
 import com.example.conceirge.ui.components.SearchBar
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel, onChangeServer: () -> Unit) {
+fun HomeScreen(
+    viewModel: HomeViewModel,
+    onChangeServer: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -92,11 +100,14 @@ fun HomeScreen(viewModel: HomeViewModel, onChangeServer: () -> Unit) {
                     item { Spacer(modifier = Modifier.height(8.dp)) }
                 }
 
-                // Library section header with "Change server" link
+                // Library section header with settings + change-server actions
                 item {
                     SectionHeader(
                         title = "My Library",
                         action = {
+                            IconButton(onClick = onOpenSettings) {
+                                Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                            }
                             TextButton(onClick = onChangeServer) {
                                 Text(
                                     "Change server",

@@ -14,7 +14,13 @@ import com.example.conceirge.data.UrlStore
 import com.example.conceirge.data.network.RetrofitInstance
 import com.example.conceirge.ui.HomeScreen
 import com.example.conceirge.ui.HomeViewModel
+import com.example.conceirge.ui.SettingsScreen
+import com.example.conceirge.ui.SettingsViewModel
 import com.example.conceirge.ui.SetupScreen
+import com.example.conceirge.ui.StatusScreen
+import com.example.conceirge.ui.StatusViewModel
+
+private enum class Screen { Home, Settings, Status }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,6 +29,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 var savedUrl by remember { mutableStateOf(UrlStore.getUrl(this)) }
+                var screen by remember { mutableStateOf(Screen.Home) }
 
                 if (savedUrl == null) {
                     SetupScreen(onConnect = { url ->
@@ -32,14 +39,37 @@ class MainActivity : ComponentActivity() {
                 } else {
                     val api = remember(savedUrl) { RetrofitInstance.create(savedUrl!!) }
                     val repo = remember(api) { ConciergeRepository(api) }
-                    val viewModel = remember(repo) { HomeViewModel(repo) }
-                    HomeScreen(
-                        viewModel = viewModel,
-                        onChangeServer = {
-                            UrlStore.clearUrl(this)
-                            savedUrl = null
+
+                    when (screen) {
+                        Screen.Home -> {
+                            val vm = remember(repo) { HomeViewModel(repo) }
+                            HomeScreen(
+                                viewModel = vm,
+                                onChangeServer = {
+                                    UrlStore.clearUrl(this)
+                                    savedUrl = null
+                                    screen = Screen.Home
+                                },
+                                onOpenSettings = { screen = Screen.Settings }
+                            )
                         }
-                    )
+                        Screen.Settings -> {
+                            val vm = remember(repo) { SettingsViewModel(repo) }
+                            SettingsScreen(
+                                viewModel = vm,
+                                onBack = { screen = Screen.Home },
+                                onOpenStatus = { screen = Screen.Status }
+                            )
+                        }
+                        Screen.Status -> {
+                            val vm = remember(repo) { StatusViewModel(repo) }
+                            StatusScreen(
+                                viewModel = vm,
+                                backendUrl = savedUrl!!,
+                                onBack = { screen = Screen.Settings }
+                            )
+                        }
+                    }
                 }
             }
         }

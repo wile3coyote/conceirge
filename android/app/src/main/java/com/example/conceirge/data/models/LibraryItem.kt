@@ -12,6 +12,8 @@ data class LibraryItem(
     val chosen_release_title: String?,
     val chosen_release_size_gb: Double?,
     val chosen_release_quality: String?,
+    val download_id: String?,
+    val download_progress: Double?, // 0–100, fetched live from SABnzbd; null when not downloading
     val created_at: String,
     val updated_at: String
 )

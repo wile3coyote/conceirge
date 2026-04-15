@@ -1,9 +1,12 @@
 package com.example.conceirge.data
 
 import com.example.conceirge.data.models.AddToLibraryRequest
+import com.example.conceirge.data.models.AppSettings
+import com.example.conceirge.data.models.AppSettingsUpdate
 import com.example.conceirge.data.models.LibraryItem
 import com.example.conceirge.data.models.MovieSearchRequest
 import com.example.conceirge.data.models.MovieSearchResult
+import com.example.conceirge.data.models.SystemStatus
 import com.example.conceirge.data.network.ConciergeApiService
 
 class ConciergeRepository(private val api: ConciergeApiService) {
@@ -32,4 +35,13 @@ class ConciergeRepository(private val api: ConciergeApiService) {
 
     suspend fun deleteItem(id: Int): Result<Unit> =
         runCatching { api.deleteLibraryItem(id); Unit }
+
+    suspend fun getSettings(): Result<AppSettings> =
+        runCatching { api.getSettings() }
+
+    suspend fun updateSettings(update: AppSettingsUpdate): Result<AppSettings> =
+        runCatching { api.updateSettings(update) }
+
+    suspend fun getStatus(): Result<SystemStatus> =
+        runCatching { api.getStatus() }
 }

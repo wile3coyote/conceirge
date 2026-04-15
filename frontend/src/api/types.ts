@@ -19,7 +19,16 @@ export interface LibraryItem {
   chosen_release_title: string | null;
   chosen_release_size_gb: number | null;
   chosen_release_quality: string | null;
+  download_id: string | null;
+  download_progress: number | null;
   created_at: string;
+  updated_at: string;
+}
+
+export interface AppSettings {
+  max_size_gb: number;
+  preferred_quality: string;
+  avoid_keywords: string[];
   updated_at: string;
 }
 

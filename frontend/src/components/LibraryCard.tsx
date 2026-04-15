@@ -49,6 +49,20 @@ export default function LibraryCard({
               ` · ${item.chosen_release_size_gb.toFixed(1)} GB`}
           </p>
         )}
+        {item.status === "downloading" && item.download_progress != null && (
+          <div className="mt-2">
+            <div className="flex justify-between text-xs text-gray-400 mb-0.5">
+              <span>Downloading</span>
+              <span>{item.download_progress.toFixed(1)}%</span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-1.5">
+              <div
+                className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${item.download_progress}%` }}
+              />
+            </div>
+          </div>
+        )}
         <div className="mt-3 flex gap-2">
           {item.status === "failed" && (
             <button

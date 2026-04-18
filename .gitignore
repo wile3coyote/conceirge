@@ -21,3 +21,6 @@ frontend/dist/
 .envrc
 firebase-service-account.json
 .serena/
+
+# Firebase / Android
+android/app/google-services.json

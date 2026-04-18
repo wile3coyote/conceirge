@@ -23,24 +23,9 @@ pytest backend/tests/test_scorer.py
 pytest backend/tests/test_scorer.py::test_name -v
 ```
 
-### Frontend
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Run the dev server (http://localhost:5173)
-npm run dev
-
-# Type-check + build
-npm run build
-```
-
 ## Architecture
 
-Concierge is a local-network web app that replaces the manual Radarr UI for movie downloads. The React frontend never calls Radarr or Jellyfin directly — all integration logic lives in the FastAPI backend.
+Concierge is a local-network app that replaces the manual Radarr UI for movie downloads. The Android app is the sole client — all integration logic lives in the FastAPI backend.
 
 ### Request flows
 
@@ -52,19 +37,12 @@ Concierge is a local-network web app that replaces the manual Radarr UI for movi
 
 ### Backend structure
 
-- **`backend/main.py`** — FastAPI app entry, CORS (localhost:5173 only), lifespan calls `create_db_and_tables()`, exception handler maps `ConciergeError` → HTTP 502 with `{"detail", "code"}`.
+- **`backend/main.py`** — FastAPI app entry, CORS (no browser origins; the Android app does not use CORS), lifespan calls `create_db_and_tables()`, exception handler maps `ConciergeError` → HTTP 502 with `{"detail", "code"}`.
 - **`backend/config.py`** — `get_settings()` with `@lru_cache`. Never use a module-level `Settings()` instance; always use `get_settings()` or inject via `Depends(get_settings)`. API keys are `SecretStr` — call `.get_secret_value()` at the HTTP call site.
 - **`backend/database.py`** — async SQLite via `aiosqlite`. Use `Depends(get_session)` in route handlers. DB file is `concierge.db` at project root.
 - **`backend/models/__init__.py`** — must import all SQLModel table classes so they register on `SQLModel.metadata` before `create_db_and_tables()` runs. Always add new table models here.
 - **`backend/services/`** — pure service layer; raise `RadarrError`, `JellyfinError`, or `ScoringError` (never `HTTPException`). The exception handler in `main.py` converts them to HTTP responses.
 - **`backend/services/scorer.py`** — pure function, no I/O. Scoring rules: 2160p > 1080p, 720p rejected; max 40 GB; blocklist keywords in title → rejected.
-
-### Frontend structure
-
-- All API calls go through `src/api/client.ts` — `get<T>()` and `post<T>()` helpers that hit `/api/*` (proxied to `http://localhost:8000` by Vite in dev, stripping the `/api` prefix).
-- Catch `ApiError` (from `client.ts`) to branch on `status`, `detail`, and `code` in error handling.
-- `src/api/types.ts` mirrors the backend Pydantic models exactly — keep them in sync.
-- TanStack Query (`@tanstack/react-query`) handles all server state: fetching, caching, polling for active downloads.
 
 ### Key invariants
 

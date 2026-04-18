@@ -1,6 +1,6 @@
 # Concierge
 
-A local-network web app that automates movie downloads by orchestrating Radarr, SABnzbd, and Jellyfin — replacing the manual Radarr UI with a single search-and-confirm interface.
+A local-network app that automates movie downloads by orchestrating Radarr, SABnzbd, and Jellyfin — replacing the manual Radarr UI with a single search-and-confirm interface. The Android app is the sole client.
 
 ## What it does
 
@@ -13,7 +13,6 @@ A local-network web app that automates movie downloads by orchestrating Radarr, 
 ## Prerequisites
 
 - Python 3.13+
-- Node.js 20+
 - A running [Radarr](https://radarr.video) instance with an API key
 - A running [Jellyfin](https://jellyfin.org) instance with an API key
 
@@ -42,24 +41,16 @@ JELLYFIN_API_KEY=your_jellyfin_api_key
 pip install -e ".[dev]"
 ```
 
-**3. Install frontend dependencies**
-
-```bash
-cd frontend && npm install
-```
-
 ## Running locally
 
 ```bash
-# Terminal 1 — backend (from project root)
+# Backend (from project root)
 uvicorn backend.main:app --reload
-
-# Terminal 2 — frontend
-cd frontend && npm run dev
 ```
 
-- Frontend: http://localhost:5173
 - API docs: http://localhost:8000/docs
+
+The Android app is the sole client — build and install it from the `android/` directory.
 
 ## Configuration
 
@@ -95,7 +86,7 @@ To trigger automatic Jellyfin refreshes when a download completes, add a webhook
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.13, FastAPI, SQLModel, aiosqlite |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS, TanStack Query |
+| Client | Android (Kotlin, Jetpack Compose) |
 | Database | SQLite (file: `concierge.db` at project root) |
 | Config | pydantic-settings, `.env` file |
 

@@ -20,6 +20,7 @@ fun StatusBadge(status: String) {
         "downloaded" -> "Downloaded" to Color(0xFF00695C)
         "in_library" -> "In Library" to Color(0xFF2E7D32)
         "failed" -> "Failed" to Color(0xFFC62828)
+        "idle" -> "Idle" to Color(0xFF9E9E9E)
         else -> status to Color.Gray
     }
 

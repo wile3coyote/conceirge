@@ -9,3 +9,5 @@ data class AddToLibraryRequest(
     val overview: String?,
     val poster_url: String?
 )
+
+data class GrabReleaseRequest(val guid: String, val indexer_id: Int)

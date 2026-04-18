@@ -3,9 +3,11 @@ package com.example.conceirge.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.conceirge.data.ConciergeRepository
-import com.example.conceirge.data.models.AppSettings
 import com.example.conceirge.data.models.AppSettingsUpdate
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -16,6 +18,7 @@ data class SettingsUiState(
     val maxSizeGb: String = "40",
     val preferredQuality: String = "2160p",
     val avoidKeywords: String = "BRRip, CAM, TS, HDCAM",
+    val autoGrab: Boolean = false,
     val saveError: String? = null,
     val saveSuccess: Boolean = false
 )
@@ -24,6 +27,9 @@ class SettingsViewModel(private val repo: ConciergeRepository) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _syncStatus = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val syncStatus: SharedFlow<String> = _syncStatus.asSharedFlow()
 
     init {
         loadSettings()
@@ -38,7 +44,8 @@ class SettingsViewModel(private val repo: ConciergeRepository) : ViewModel() {
                             isLoading = false,
                             maxSizeGb = s.max_size_gb.toInt().toString(),
                             preferredQuality = s.preferred_quality,
-                            avoidKeywords = s.avoid_keywords.joinToString(", ")
+                            avoidKeywords = s.avoid_keywords.joinToString(", "),
+                            autoGrab = s.auto_grab
                         )
                     }
                 }
@@ -53,6 +60,37 @@ class SettingsViewModel(private val repo: ConciergeRepository) : ViewModel() {
     fun onKeywordsChange(v: String) = _uiState.update { it.copy(avoidKeywords = v) }
     fun clearError() = _uiState.update { it.copy(saveError = null) }
     fun clearSuccess() = _uiState.update { it.copy(saveSuccess = false) }
+
+    fun setAutoGrab(value: Boolean) {
+        val previous = _uiState.value.autoGrab
+        _uiState.update { it.copy(autoGrab = value) }
+        viewModelScope.launch {
+            repo.updateSettings(AppSettingsUpdate(auto_grab = value))
+                .onSuccess { saved ->
+                    _uiState.update { it.copy(autoGrab = saved.auto_grab) }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            autoGrab = previous,
+                            saveError = e.message ?: "Failed to update auto-grab setting"
+                        )
+                    }
+                }
+        }
+    }
+
+    fun syncNow() {
+        viewModelScope.launch {
+            repo.syncLibrary()
+                .onSuccess {
+                    _syncStatus.tryEmit("Sync triggered")
+                }
+                .onFailure { e ->
+                    _syncStatus.tryEmit("Sync failed: ${e.message ?: "unknown error"}")
+                }
+        }
+    }
 
     fun save() {
         val state = _uiState.value

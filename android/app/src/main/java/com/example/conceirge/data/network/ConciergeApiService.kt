@@ -3,9 +3,11 @@ package com.example.conceirge.data.network
 import com.example.conceirge.data.models.AddToLibraryRequest
 import com.example.conceirge.data.models.AppSettings
 import com.example.conceirge.data.models.AppSettingsUpdate
+import com.example.conceirge.data.models.GrabReleaseRequest
 import com.example.conceirge.data.models.LibraryItem
 import com.example.conceirge.data.models.MovieSearchRequest
 import com.example.conceirge.data.models.MovieSearchResult
+import com.example.conceirge.data.models.ScoredRelease
 import com.example.conceirge.data.models.SystemStatus
 import retrofit2.Response
 import retrofit2.http.Body
@@ -39,4 +41,16 @@ interface ConciergeApiService {
 
     @GET("status")
     suspend fun getStatus(): SystemStatus
+
+    @GET("library/{id}/releases")
+    suspend fun getReleases(@Path("id") id: Int): List<ScoredRelease>
+
+    @POST("library/{id}/grab")
+    suspend fun grabRelease(@Path("id") id: Int, @Body body: GrabReleaseRequest): Response<Unit>
+
+    @POST("library/{id}/auto-grab")
+    suspend fun autoGrab(@Path("id") id: Int): Response<Unit>
+
+    @POST("library/sync")
+    suspend fun syncLibrary(): Response<Unit>
 }

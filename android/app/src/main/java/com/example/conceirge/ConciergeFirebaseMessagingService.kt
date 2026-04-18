@@ -33,9 +33,12 @@ class ConciergeFirebaseMessagingService : FirebaseMessagingService() {
         val channel = NotificationChannel(channelId, "Downloads", NotificationManager.IMPORTANCE_DEFAULT)
         manager.createNotificationChannel(channel)
 
+        val libraryItemId = message.data["library_item_id"]?.takeIf { it.isNotBlank() }
+        val navigateTo = if (libraryItemId != null) "library/$libraryItemId" else "home"
+
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra("navigate_to", "library")
+            putExtra("navigate_to", navigateTo)
         }
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,

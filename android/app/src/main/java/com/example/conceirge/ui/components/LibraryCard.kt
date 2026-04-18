@@ -1,5 +1,6 @@
 package com.example.conceirge.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +15,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,14 +28,14 @@ import com.example.conceirge.data.models.LibraryItem
 @Composable
 fun LibraryCard(
     item: LibraryItem,
-    onRetry: () -> Unit,
-    onDelete: () -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -103,18 +103,6 @@ fun LibraryCard(
                     )
                 }
 
-                // Action buttons
-                if (item.status == "failed") {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row {
-                        TextButton(onClick = onRetry) { Text("Retry") }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        TextButton(onClick = onDelete) { Text("Delete") }
-                    }
-                } else {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    TextButton(onClick = onDelete) { Text("Remove") }
-                }
             }
         }
     }

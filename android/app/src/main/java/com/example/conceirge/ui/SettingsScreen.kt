@@ -18,6 +18,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -68,6 +70,11 @@ fun SettingsScreen(
         if (state.saveSuccess) {
             snackbarHostState.showSnackbar("Settings saved")
             viewModel.clearSuccess()
+        }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.syncStatus.collect { message ->
+            snackbarHostState.showSnackbar(message)
         }
     }
 
@@ -177,6 +184,37 @@ fun SettingsScreen(
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth()
             )
+
+            // Auto-grab toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Automatically grab releases",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "When off, new adds land in the library idle and you pick releases manually",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Switch(
+                    checked = state.autoGrab,
+                    onCheckedChange = viewModel::setAutoGrab
+                )
+            }
+
+            // Sync button
+            OutlinedButton(
+                onClick = viewModel::syncNow,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Sync with Radarr now")
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 

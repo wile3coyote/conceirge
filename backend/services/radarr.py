@@ -188,7 +188,7 @@ async def fetch_releases(
                 url, headers=_headers(settings), params={"movieId": movie_id}
             )
         else:
-            async with httpx.AsyncClient() as c:
+            async with httpx.AsyncClient(timeout=60.0) as c:
                 response = await c.get(
                     url, headers=_headers(settings), params={"movieId": movie_id}
                 )

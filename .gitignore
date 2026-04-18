@@ -19,3 +19,4 @@ frontend/dist/
 # Editor / tools
 .claude/
 .envrc
+firebase-service-account.json

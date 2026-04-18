@@ -48,6 +48,8 @@ async def update_settings(
         row.avoid_keywords_json = json.dumps(body.avoid_keywords)
     if body.fcm_token is not None:
         row.fcm_token = body.fcm_token if body.fcm_token != "" else None
+    if body.auto_grab is not None:
+        row.auto_grab = body.auto_grab
     row.updated_at = datetime.now(timezone.utc)
 
     await session.commit()

@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     jellyfin_api_key: SecretStr = SecretStr("")
     sabnzbd_url: str = "http://localhost:8080"
     sabnzbd_api_key: SecretStr = SecretStr("")
+    firebase_service_account_path: str = "firebase-service-account.json"
+    firebase_project_id: str = ""
     max_size_gb: float = 40.0
     max_size_tolerance_pct: float = 20.0  # % over max_size_gb still accepted
     preferred_quality: str = "2160p"

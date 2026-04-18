@@ -1,6 +1,7 @@
 from pathlib import Path
 from collections.abc import AsyncGenerator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -26,6 +27,10 @@ async def create_db_and_tables() -> None:
     """Create all SQLModel tables. Called once on application startup."""
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
+        try:
+            await conn.execute(text("ALTER TABLE app_settings ADD COLUMN fcm_token TEXT"))
+        except Exception:
+            pass
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

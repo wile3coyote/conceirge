@@ -10,8 +10,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from backend.config import Settings, get_settings
 from backend.database import get_session
 from backend.exceptions import JellyfinError
+from backend.models.app_settings import AppSettings
 from backend.models.library_item import LibraryItem
-from backend.services import jellyfin
+from backend.services import fcm, jellyfin
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,22 @@ async def radarr_webhook(
             pass  # don't block webhook on Jellyfin errors
         item.status = "in_library"
         logger.info("Item %d: %s → in_library", item.id, item.status)
+
+        app_settings_row = (await session.exec(select(AppSettings))).first()
+        if app_settings_row and app_settings_row.fcm_token and settings.firebase_project_id:
+            try:
+                await fcm.send_download_complete(
+                    project_id=settings.firebase_project_id,
+                    service_account_path=settings.firebase_service_account_path,
+                    fcm_token=app_settings_row.fcm_token,
+                    title=item.title,
+                    year=item.year,
+                    tmdb_id=item.tmdb_id,
+                    quality=item.chosen_release_quality,
+                )
+                logger.info("FCM notification sent for item %d", item.id)
+            except Exception as exc:
+                logger.error("FCM notification failed for item %d: %s", item.id, exc)
     else:
         logger.warning(
             "Webhook ignored: eventType=%s but item status=%s (no valid transition)",

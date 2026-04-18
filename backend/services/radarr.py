@@ -1,5 +1,4 @@
 import asyncio
-
 import httpx
 
 from backend.config import Settings
@@ -202,6 +201,58 @@ async def fetch_releases(
         )
 
     return response.json()
+
+
+async def list_movies(
+    settings: Settings, client: httpx.AsyncClient | None = None
+) -> list[dict]:
+    """GET /api/v3/movie — returns the raw list of Radarr movie dicts."""
+    url = f"{_base_url(settings)}/movie"
+    try:
+        if client is not None:
+            response = await client.get(url, headers=_headers(settings))
+        else:
+            async with httpx.AsyncClient() as c:
+                response = await c.get(url, headers=_headers(settings))
+    except httpx.RequestError as exc:
+        raise RadarrError(f"Radarr unreachable: {exc}") from exc
+
+    if not response.is_success:
+        raise RadarrError(
+            f"Radarr list movies failed with status {response.status_code}",
+            code="radarr_error",
+        )
+
+    return response.json()
+
+
+async def delete_movie(
+    movie_id: int,
+    settings: Settings,
+    *,
+    delete_files: bool = True,
+    client: httpx.AsyncClient | None = None,
+) -> None:
+    """DELETE /api/v3/movie/{movie_id} — removes a movie from Radarr."""
+    url = f"{_base_url(settings)}/movie/{movie_id}"
+    params = {
+        "deleteFiles": "true" if delete_files else "false",
+        "addImportExclusion": "false",
+    }
+    try:
+        if client is not None:
+            response = await client.delete(url, headers=_headers(settings), params=params)
+        else:
+            async with httpx.AsyncClient() as c:
+                response = await c.delete(url, headers=_headers(settings), params=params)
+    except httpx.RequestError as exc:
+        raise RadarrError(f"Radarr unreachable: {exc}") from exc
+
+    if not response.is_success:
+        raise RadarrError(
+            f"Radarr delete movie failed with status {response.status_code}",
+            code="radarr_error",
+        )
 
 
 async def search_movie_releases(query: str, settings: Settings) -> tuple[dict, list[dict]]:

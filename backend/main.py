@@ -1,4 +1,6 @@
+import asyncio
 import json
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -13,7 +15,12 @@ from backend.exceptions import ConciergeError
 from backend.models.app_settings import AppSettings
 from backend.routers import library, movies, status as status_router, webhooks
 from backend.routers import settings as settings_router
+from backend.services.sync import reconcile_with_radarr
 import backend.models  # noqa: F401 — registers SQLModel table metadata
+
+logger = logging.getLogger(__name__)
+
+_RECONCILE_INTERVAL_SECONDS = 1800  # 30 minutes
 
 
 async def _seed_app_settings() -> None:
@@ -31,12 +38,52 @@ async def _seed_app_settings() -> None:
             await session.commit()
 
 
+async def _reconcile_loop() -> None:
+    """Background task: call reconcile_with_radarr every 30 minutes.
+
+    Sleeps for the interval, then reconciles — so the first run is done
+    eagerly in the lifespan before this loop starts.  Exits cleanly on
+    CancelledError.
+    """
+    while True:
+        try:
+            await asyncio.sleep(_RECONCILE_INTERVAL_SECONDS)
+            async with async_session() as session:
+                await reconcile_with_radarr(session)
+        except asyncio.CancelledError:
+            logger.info("reconcile_loop: cancelled, shutting down")
+            return
+        except Exception:
+            logger.exception("reconcile_loop: error during reconciliation — will retry next cycle")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Initialize DB tables and seed settings on startup."""
+    """Initialize DB tables, seed settings, run initial sync, start periodic sync."""
     await create_db_and_tables()
     await _seed_app_settings()
+
+    # One-shot reconcile at startup — best-effort (Radarr may be unavailable)
+    try:
+        async with async_session() as session:
+            await reconcile_with_radarr(session)
+    except Exception:
+        logger.warning(
+            "lifespan: startup reconciliation failed (Radarr may be offline) — continuing",
+            exc_info=True,
+        )
+
+    # Spawn the periodic reconcile loop
+    reconcile_task = asyncio.create_task(_reconcile_loop())
+
     yield
+
+    # Shutdown: cancel the background loop and wait for it to finish
+    reconcile_task.cancel()
+    try:
+        await reconcile_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(
@@ -48,7 +95,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"],
+    allow_origins=[],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

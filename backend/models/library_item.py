@@ -4,7 +4,7 @@ from typing import Literal
 from sqlmodel import Field, SQLModel
 
 LibraryStatus = Literal[
-    "searching", "grabbing", "downloading", "downloaded", "in_library", "failed"
+    "idle", "searching", "grabbing", "downloading", "downloaded", "in_library", "failed"
 ]
 
 
@@ -22,6 +22,7 @@ class LibraryItem(SQLModel, table=True):
     chosen_release_size_gb: float | None = None
     chosen_release_quality: str | None = None
     download_id: str | None = None  # SABnzbd nzo_id, stored from Radarr Grab webhook
+    radarr_has_file: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -42,6 +43,7 @@ class LibraryItemRead(SQLModel):
     chosen_release_size_gb: float | None = None
     chosen_release_quality: str | None = None
     download_id: str | None = None
+    radarr_has_file: bool = False
     download_progress: float | None = None  # fetched live from SABnzbd, never persisted
     created_at: datetime
     updated_at: datetime

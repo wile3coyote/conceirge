@@ -27,10 +27,15 @@ async def create_db_and_tables() -> None:
     """Create all SQLModel tables. Called once on application startup."""
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-        try:
-            await conn.execute(text("ALTER TABLE app_settings ADD COLUMN fcm_token TEXT"))
-        except Exception:
-            pass
+        for ddl in (
+            "ALTER TABLE app_settings ADD COLUMN fcm_token TEXT",
+            "ALTER TABLE app_settings ADD COLUMN auto_grab BOOLEAN NOT NULL DEFAULT 1",
+            "ALTER TABLE libraryitem ADD COLUMN radarr_has_file BOOLEAN NOT NULL DEFAULT 0",
+        ):
+            try:
+                await conn.execute(text(ddl))
+            except Exception:
+                pass
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

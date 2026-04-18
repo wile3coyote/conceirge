@@ -20,6 +20,7 @@ class AppSettings(SQLModel, table=True):
     preferred_quality: str = "2160p"
     avoid_keywords_json: str = Field(default=_DEFAULT_AVOID_KEYWORDS)
     fcm_token: str | None = Field(default=None)
+    auto_grab: bool = True
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -28,6 +29,7 @@ class AppSettingsRead(SQLModel):
     preferred_quality: str
     avoid_keywords: list[str]
     fcm_token: str | None = None
+    auto_grab: bool
     updated_at: datetime
 
 
@@ -36,6 +38,7 @@ class AppSettingsUpdate(SQLModel):
     preferred_quality: str | None = None
     avoid_keywords: list[str] | None = None
     fcm_token: str | None = None
+    auto_grab: bool | None = None
 
 
 def to_read(s: AppSettings) -> AppSettingsRead:
@@ -44,5 +47,6 @@ def to_read(s: AppSettings) -> AppSettingsRead:
         preferred_quality=s.preferred_quality,
         avoid_keywords=json.loads(s.avoid_keywords_json),
         fcm_token=s.fcm_token,
+        auto_grab=s.auto_grab,
         updated_at=s.updated_at,
     )

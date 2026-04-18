@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timezone
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from backend.config import Settings
@@ -16,14 +17,67 @@ from backend.services import radarr, scorer
 logger = logging.getLogger(__name__)
 
 
+async def run_grab_phase(
+    item: LibraryItem,
+    session: AsyncSession,
+    settings: Settings,
+) -> None:
+    """Phase 2: fetch releases → score → grab best non-rejected release.
+
+    Mutates *item* and commits to *session*.  Raises RadarrError / ScoringError
+    on failure (caller is responsible for setting status → 'failed').
+
+    Precondition: item.radarr_movie_id is not None.
+    """
+    assert item.radarr_movie_id is not None
+    radarr_movie_id: int = item.radarr_movie_id
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        # Fetch releases with retry
+        releases: list[dict] = []
+        for attempt in range(5):
+            releases = await radarr.fetch_releases(
+                radarr_movie_id, settings, client=client
+            )
+            if releases:
+                break
+            if attempt < 4:
+                await asyncio.sleep(2)
+
+        scored = scorer.score_releases(releases, settings)
+        best = next((r for r in scored if not r.rejected), None)
+
+        if best is None:
+            item.status = "failed"
+            item.fail_reason = "No acceptable releases found"
+            item.updated_at = datetime.now(timezone.utc)
+            await session.commit()
+            return
+
+        # Commit status BEFORE calling Radarr to avoid a race with the Grab
+        # webhook that Radarr fires immediately after accepting the request.
+        item.status = "grabbing"
+        item.chosen_release_title = best.title
+        item.chosen_release_size_gb = best.size_gb
+        item.chosen_release_quality = best.quality
+        item.updated_at = datetime.now(timezone.utc)
+        await session.commit()
+        await session.refresh(item)
+
+        await radarr.grab_release(
+            best.radarr_guid, best.indexer_id, settings, client=client
+        )
+
+
 async def run_library_pipeline(item_id: int, settings: Settings) -> None:
-    """Background task: Radarr lookup → fetch releases → score → grab best."""
+    """Background task: Radarr lookup → add → (if auto_grab) fetch releases → score → grab best."""
     async with async_session() as session:
         item = await session.get(LibraryItem, item_id)
         if item is None:
             return
 
-        # Merge DB scoring preferences over env defaults so UI changes take effect immediately
+        # Merge DB scoring preferences (and auto_grab flag) over env defaults so
+        # UI changes take effect immediately without a server restart.
         db_prefs = (await session.exec(select(AppSettings))).first()
         if db_prefs is not None:
             settings = settings.model_copy(update={
@@ -34,7 +88,7 @@ async def run_library_pipeline(item_id: int, settings: Settings) -> None:
 
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
-                # Step 1: ensure movie is in Radarr
+                # Phase 1: ensure the movie exists in Radarr and persist radarr_movie_id
                 if item.radarr_movie_id is None:
                     results = await radarr.lookup_movie(
                         f"tmdb:{item.tmdb_id}", settings, client=client
@@ -59,42 +113,15 @@ async def run_library_pipeline(item_id: int, settings: Settings) -> None:
                     await session.commit()
                     await session.refresh(item)
 
-                # Step 2: fetch releases with retry
-                assert item.radarr_movie_id is not None
-                radarr_movie_id: int = item.radarr_movie_id
-                releases: list[dict] = []
-                for attempt in range(5):
-                    releases = await radarr.fetch_releases(
-                        radarr_movie_id, settings, client=client
-                    )
-                    if releases:
-                        break
-                    if attempt < 4:
-                        await asyncio.sleep(2)
-
-                scored = scorer.score_releases(releases, settings)
-                best = next((r for r in scored if not r.rejected), None)
-
-                if best is None:
-                    item.status = "failed"
-                    item.fail_reason = "No acceptable releases found"
-                    item.updated_at = datetime.now(timezone.utc)
-                    await session.commit()
-                    return
-
-                # Step 3: grab – commit status BEFORE calling Radarr to avoid
-                # race with the Grab webhook Radarr fires immediately after accepting
-                item.status = "grabbing"
-                item.chosen_release_title = best.title
-                item.chosen_release_size_gb = best.size_gb
-                item.chosen_release_quality = best.quality
+            # Phase 2: fetch releases, score, and grab — only when auto_grab is enabled
+            auto_grab: bool = db_prefs.auto_grab if db_prefs is not None else True
+            if not auto_grab:
+                item.status = "idle"
                 item.updated_at = datetime.now(timezone.utc)
                 await session.commit()
-                await session.refresh(item)
+                return
 
-                await radarr.grab_release(
-                    best.radarr_guid, best.indexer_id, settings, client=client
-                )
+            await run_grab_phase(item, session, settings)
 
         except ConciergeError as exc:
             await session.refresh(item)

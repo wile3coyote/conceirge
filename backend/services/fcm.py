@@ -18,6 +18,7 @@ async def send_download_complete(
     year: int,
     tmdb_id: int,
     quality: str | None,
+    library_item_id: int,
 ) -> None:
     creds = service_account.Credentials.from_service_account_file(
         service_account_path, scopes=_FCM_SCOPES
@@ -33,7 +34,7 @@ async def send_download_complete(
         "message": {
             "token": fcm_token,
             "notification": {"title": "Download complete", "body": body},
-            "data": {"screen": "library", "tmdb_id": str(tmdb_id)},
+            "data": {"screen": "library", "tmdb_id": str(tmdb_id), "library_item_id": str(library_item_id)},
         }
     }
 
